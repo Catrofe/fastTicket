@@ -1,5 +1,10 @@
 {
-  "request": { "method": "POST", "urlPath": "/charges" },
+  "priority": 5,
+  "request": {
+    "method": "POST",
+    "urlPath": "/charges",
+    "bodyPatterns": [{ "matchesJsonPath": { "expression": "$.token", "equalTo": "tok_ok" } }]
+  },
   "response": {
     "status": 200,
     "headers": { "Content-Type": "application/json" },
