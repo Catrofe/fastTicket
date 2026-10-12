@@ -7,6 +7,3 @@ class ConditionalAllocatorBenchmark : AbstractAllocatorBenchmark("conditional")
 
 @TestPropertySource(properties = ["inventory.allocator.strategy=pessimistic"])
 class PessimisticAllocatorBenchmark : AbstractAllocatorBenchmark("pessimistic")
-
-@TestPropertySource(properties = ["inventory.allocator.strategy=optimistic"])
-class OptimisticAllocatorBenchmark : AbstractAllocatorBenchmark("optimistic")

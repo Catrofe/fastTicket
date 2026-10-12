@@ -67,7 +67,7 @@ tasks.register<Test>("benchmark") {
     doFirst { layout.buildDirectory.dir("reports/allocator-benchmark").get().asFile.deleteRecursively() }
     doLast {
         val dir = layout.buildDirectory.dir("reports/allocator-benchmark").get().asFile
-        val results = listOf("conditional", "pessimistic", "optimistic").associateWith {
+        val results = listOf("conditional", "pessimistic").associateWith {
             @Suppress("UNCHECKED_CAST")
             groovy.json.JsonSlurper().parse(File(dir, "$it.json")) as Map<String, Map<String, Any>>
         }

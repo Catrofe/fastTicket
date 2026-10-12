@@ -71,7 +71,7 @@ class CoreSchemaMigrationTest @Autowired constructor(private val jdbc: JdbcClien
             .query(String::class.java).list()
         val expected = listOf(
             "event", "sector", "seat", "sector_inventory", "lot", "sector_half_quota", "buyer_event", "hold",
-            "hold_item", "seat_allocation", "order", "payment", "refund", "idempotency_key", "seat_version",
+            "hold_item", "seat_allocation", "order", "payment", "refund", "idempotency_key",
         )
         assertTrue(tables.containsAll(expected), "missing: ${expected - tables.toSet()}")
     }
@@ -436,16 +436,6 @@ class CoreSchemaMigrationTest @Autowired constructor(private val jdbc: JdbcClien
     @Test
     fun `refund requires payment`() = rejects(
         "fk_refund_payment", "INSERT INTO refund (id, payment_id, amount, status, reason) VALUES (?, ?, 1, 'PENDING', 'CANCELLED')", id(), id(),
-    )
-
-    @Test
-    fun `seat version requires seat`() = rejects(
-        "fk_seat_version_seat", "INSERT INTO seat_version (seat_id) VALUES (?)", id(),
-    )
-
-    @Test
-    fun `seat version is not negative`() = rejects(
-        "ck_seat_version_version", "INSERT INTO seat_version (seat_id, version) VALUES (?, -1)", seat(sector(event())),
     )
 
     @Test
