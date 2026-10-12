@@ -8,7 +8,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/fastticket}
     username: ${DB_USER:fastticket}
-    password: ${DB_PASSWORD:fastticket}
+    password: ${DB_PASSWORD}
   jpa:
     open-in-view: false
     hibernate:

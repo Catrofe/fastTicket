@@ -86,14 +86,13 @@ class ModuleDependencyTest {
 
     @Test
     fun `rules fail on deliberately violating fixtures`() {
-        val mustFail = moduleRules.first { it.description.startsWith("module catalog") } to "catalog->checkout"
-        listOf(
-            mustFail.first,
+        val mustFail = listOf(
+            moduleRules.first { it.description.startsWith("module catalog") },
+            moduleRules.first { it.description.startsWith("shared") },
             noCycles,
-            layerRules[0],
-            timeRules[0],
             redisRule,
-        ).forEach { rule ->
+        ) + layerRules + timeRules
+        mustFail.forEach { rule ->
             assertFailsWith<AssertionError>("rule should fail: ${rule.description}") { rule.check(withFixtures) }
         }
     }
