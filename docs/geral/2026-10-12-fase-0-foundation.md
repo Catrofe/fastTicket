@@ -31,7 +31,9 @@ O repositório era só o esqueleto do Spring Initializr. Antes de escrever regra
 ## Como foi resolvido
 
 - As regras do ArchUnit usam `allowEmptyShould(true)`, porque os módulos ainda estão vazios. Para uma regra com pacote errado não passar em silêncio, um teste importa fixtures que violam cada regra e exige que ela falhe.
-- O schema só chega na fase 1, então cada invariante é protegida por `to_regclass`: tabela ausente devolve `SKIPPED`. Um teste cria tabelas de rascunho numa transação (revertida) e confirma que cada query detecta sua violação. Esses DDLs precisam ser reconciliados com o schema real na fase 1.
+- O schema só chega na fase 1, então cada invariante é protegida por `to_regclass`: nenhuma tabela presente devolve `SKIPPED`, todas presentes executa a query (com tabelas qualificadas pelo schema) e presença parcial falha com `VIOLATED`, para não esconder violação. Um teste cria tabelas de rascunho numa transação (revertida) e confirma que cada query detecta sua violação. Esses DDLs precisam ser reconciliados com o schema real na fase 1.
 - `DbClock` usa `clock_timestamp()` e não `now()`, que fica fixo no início da transação (ADR 001).
-- `DB_PASSWORD` não tem valor padrão no `application.yml`: sem a variável a aplicação falha ao subir, em vez de usar uma credencial previsível. O compose define o valor local.
+- Não há senha padrão em lugar nenhum: nem `DB_PASSWORD` no `application.yml` nem `POSTGRES_PASSWORD` no compose. Sem as variáveis a aplicação e o compose falham ao subir, em vez de usar uma credencial previsível. Os testes não são afetados, porque o `@ServiceConnection` do Testcontainers fornece as credenciais. O compose lê a senha de `infra/.env`.
 - O endpoint Prometheus e o Swagger ficam abertos no perfil `api`. É aceitável enquanto não há deploy nem autenticação, e precisa ser restringido antes de expor a aplicação.
+- Adiados de propósito: restringir Prometheus e Swagger (depende de deploy e autenticação), isolar o `worker` com health e métricas próprios (fase 5, quando vira container separado) e usar uma role de aplicação sem superusuário (fase 1, junto do schema).
+- O ArchUnit também falha para pacotes fora de um módulo conhecido e para `java.util.Date`/`Calendar` fora de `shared.time`. Cada regra tem uma fixture que a faz falhar.

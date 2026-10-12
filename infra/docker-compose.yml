@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-fastticket}
       POSTGRES_USER: ${POSTGRES_USER:-fastticket}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fastticket}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in infra/.env}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -37,7 +37,7 @@ services:
       SPRING_PROFILES_ACTIVE: combined
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-fastticket}
       DB_USER: ${POSTGRES_USER:-fastticket}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-fastticket}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?set it in infra/.env}
       GATEWAY_BASE_URL: http://gateway-mock:8080
     ports:
       - "127.0.0.1:8080:8080"

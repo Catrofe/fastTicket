@@ -1,7 +1,9 @@
 package com.fastticket.shared.time
 
+import com.fastticket.support.InvariantsExtension
 import com.fastticket.support.TestcontainersConfiguration
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -13,6 +15,7 @@ import kotlin.test.assertTrue
 
 @Import(TestcontainersConfiguration::class)
 @SpringBootTest
+@ExtendWith(InvariantsExtension::class)
 class DbClockTest @Autowired constructor(
     private val dbClock: DbClock,
     private val jdbc: JdbcClient,

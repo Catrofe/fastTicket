@@ -6,6 +6,7 @@ import com.tngtech.archunit.core.domain.JavaClasses
 import com.tngtech.archunit.core.importer.ClassFileImporter
 import com.tngtech.archunit.core.importer.ImportOption
 import com.tngtech.archunit.lang.ArchRule
+import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
 import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices
 import org.junit.jupiter.api.Test
@@ -69,6 +70,10 @@ class ModuleDependencyTest {
         noClasses().that().resideOutsideOfPackage("com.fastticket.shared.time..")
             .should().dependOnClassesThat().areAssignableTo(java.time.Clock::class.java)
             .allowEmptyShould(true).`as`("no java.time.Clock outside shared.time"),
+        noClasses().that().resideOutsideOfPackage("com.fastticket.shared.time..")
+            .should().dependOnClassesThat().areAssignableTo(java.util.Date::class.java)
+            .orShould().dependOnClassesThat().areAssignableTo(java.util.Calendar::class.java)
+            .allowEmptyShould(true).`as`("no java.util.Date or Calendar outside shared.time"),
     )
 
     private val redisRule: ArchRule = noClasses()
@@ -77,7 +82,13 @@ class ModuleDependencyTest {
         .should().dependOnClassesThat().resideInAPackage("org.springframework.data.redis..")
         .allowEmptyShould(true).`as`("only queue, realtime and jobs know Redis")
 
-    private val allRules: List<ArchRule> = moduleRules + noCycles + layerRules + timeRules + redisRule
+    private val knownPackagesOnly: ArchRule = classes().that().resideInAPackage("com.fastticket..")
+        .should().resideInAnyPackage(
+            "com.fastticket", "com.fastticket.shared..", *modules.keys.map { "com.fastticket.$it.." }.toTypedArray(),
+        )
+        .allowEmptyShould(true).`as`("production code lives in the root package, shared or a known module")
+
+    private val allRules: List<ArchRule> = moduleRules + noCycles + layerRules + timeRules + redisRule + knownPackagesOnly
 
     @Test
     fun `production code respects every architecture rule`() {
@@ -86,12 +97,7 @@ class ModuleDependencyTest {
 
     @Test
     fun `rules fail on deliberately violating fixtures`() {
-        val mustFail = listOf(
-            moduleRules.first { it.description.startsWith("module catalog") },
-            moduleRules.first { it.description.startsWith("shared") },
-            noCycles,
-            redisRule,
-        ) + layerRules + timeRules
+        val mustFail = allRules
         mustFail.forEach { rule ->
             assertFailsWith<AssertionError>("rule should fail: ${rule.description}") { rule.check(withFixtures) }
         }

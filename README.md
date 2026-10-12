@@ -11,10 +11,11 @@ Phase 0 (Foundation) done: build, module skeleton with ArchUnit-enforced boundar
 ## Run locally
 
 ```
-docker compose -f infra/docker-compose.yml up --build
+cp infra/.env.example infra/.env   # set POSTGRES_PASSWORD
+docker compose -f infra/docker-compose.yml --env-file infra/.env up --build
 ```
 
-Starts `postgres`, `gateway-mock` (WireMock) and `api` (http://localhost:8080, health at `/actuator/health`). Copy `infra/.env.example` to `infra/.env` to override the local credentials.
+Starts `postgres`, `gateway-mock` (WireMock) and `api` (http://localhost:8080, health at `/actuator/health`). `POSTGRES_PASSWORD` is required (no default).
 
 ## Tests
 
