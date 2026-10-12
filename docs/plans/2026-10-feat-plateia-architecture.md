@@ -20,7 +20,7 @@ versioning-criteria:
 
 # Implementation Plan: Plateia (fastTicket) — Domains, Folder Architecture, Phasing
 
-> Sources: `docs/PRD — Reserva de passagens e assentos em voos.md` (content is the Plateia ticketing PRD) and `docs/arquitetura-plateia.md`.
+> Sources: the Plateia ticketing PRD and the Plateia architecture document (kept outside the repo, not versioned).
 > Language: code, identifiers and table names in English. Documentation in pt-BR and English.
 > Decision record: [ADR 001](../adr/001-monolito-modular-postgres-fonte-unica.md).
 
