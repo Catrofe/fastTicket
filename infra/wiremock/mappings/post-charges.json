@@ -1,0 +1,8 @@
+{
+  "request": { "method": "POST", "urlPath": "/charges" },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "status": "APPROVED", "gateway_ref": "gw-{{jsonPath request.body '$.reference'}}" }
+  }
+}

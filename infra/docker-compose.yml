@@ -1,0 +1,57 @@
+name: fastticket
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fastticket}
+      POSTGRES_USER: ${POSTGRES_USER:-fastticket}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in infra/.env}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  gateway-mock:
+    image: wiremock/wiremock:3.9.1
+    command: ["--global-response-templating"]
+    ports:
+      - "127.0.0.1:8089:8080"
+    volumes:
+      - ./wiremock/mappings:/home/wiremock/mappings:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8080/__admin/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+    environment:
+      SPRING_PROFILES_ACTIVE: combined
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-fastticket}
+      DB_USER: ${POSTGRES_USER:-fastticket}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?set it in infra/.env}
+      GATEWAY_BASE_URL: http://gateway-mock:8080
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      gateway-mock:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8080 && printf \"GET /actuator/health HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q UP <&3'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  pgdata:

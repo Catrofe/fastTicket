@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: fastTicket
+  profiles:
+    default: combined
+    group:
+      combined: api,worker
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/fastticket}
+    username: ${DB_USER:fastticket}
+    password: ${DB_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          enabled: false
+    logging:
+      export:
+        otlp:
+          enabled: false
+
+gateway:
+  base-url: ${GATEWAY_BASE_URL:http://localhost:8089}

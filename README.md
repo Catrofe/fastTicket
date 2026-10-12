@@ -6,4 +6,25 @@ Modular monolith in Kotlin + Spring Boot, with Postgres as the single source of 
 
 ## Status
 
-Project skeleton. Documentation and the phased roadmap land in follow-up PRs.
+Phase 0 (Foundation) done: build, module skeleton with ArchUnit-enforced boundaries, database clock (`DbClock`), `api`/`worker` profiles, invariant checker and local stack. Business features start in phase 1. See `docs/plans/` and `docs/adr/`.
+
+## Run locally
+
+```
+cp infra/.env.example infra/.env   # set POSTGRES_PASSWORD
+docker compose -f infra/docker-compose.yml --env-file infra/.env up --build
+```
+
+Starts `postgres`, `gateway-mock` (WireMock) and `api` (http://localhost:8080, health at `/actuator/health`). `POSTGRES_PASSWORD` is required (no default).
+
+## Tests
+
+```
+./gradlew build
+```
+
+Requires Docker (Testcontainers starts Postgres).
+
+## Profiles
+
+One image, two roles: `api` (HTTP) and `worker` (jobs). `combined` (default) activates both and is what runs until phase 5.

@@ -41,3 +41,6 @@ out/
 
 ### Claude Code ###
 .claude/
+
+### Local env ###
+infra/.env

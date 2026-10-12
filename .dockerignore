@@ -1,0 +1,7 @@
+.git
+.gradle
+.idea
+.claude
+build
+infra
+docs
