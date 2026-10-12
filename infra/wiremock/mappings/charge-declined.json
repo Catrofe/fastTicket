@@ -1,0 +1,13 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPath": "/charges",
+    "bodyPatterns": [{ "matchesJsonPath": { "expression": "$.token", "equalTo": "tok_declined" } }]
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "status": "DECLINED", "reason": "INSUFFICIENT_FUNDS" }
+  }
+}

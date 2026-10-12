@@ -9,11 +9,9 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/fastticket}
     username: ${DB_USER:fastticket}
     password: ${DB_PASSWORD}
-  jpa:
-    open-in-view: false
-    hibernate:
-      ddl-auto: none
   liquibase:
+    user: ${DB_ADMIN_USER:}
+    password: ${DB_ADMIN_PASSWORD:}
     change-log: classpath:db/changelog/db.changelog-master.yaml
   jackson:
     deserialization:
@@ -44,3 +42,17 @@ management:
 
 gateway:
   base-url: ${GATEWAY_BASE_URL:http://localhost:8089}
+  api-key: ${GATEWAY_API_KEY:}
+  connect-timeout: 1s
+  read-timeout: 3s
+
+checkout:
+  pending-grace: 2m
+
+inventory:
+  hold-ttl: 10m
+
+jobs:
+  hold-expiration:
+    interval: 5s
+    batch: 200

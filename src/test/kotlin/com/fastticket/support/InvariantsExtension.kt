@@ -8,6 +8,6 @@ import org.springframework.test.context.junit.jupiter.SpringExtension
 class InvariantsExtension : AfterEachCallback {
     override fun afterEach(context: ExtensionContext) {
         val jdbc = SpringExtension.getApplicationContext(context).getBean(JdbcClient::class.java)
-        InvariantChecker(jdbc).assertClean()
+        InvariantChecker(jdbc, strict = true).assertClean()
     }
 }

@@ -1,1 +1,5 @@
-databaseChangeLog: []
+databaseChangeLog:
+  - include:
+      file: db/changelog/phase-1/001-core-schema.sql
+  - include:
+      file: db/changelog/phase-1/002-constraints-and-indexes.sql

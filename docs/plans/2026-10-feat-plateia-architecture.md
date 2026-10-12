@@ -41,7 +41,7 @@ Plateia is a seat-reserved ticketing API: hold seats for 10 minutes, pay with an
 | Module | Owns | Depends on |
 |---|---|---|
 | `catalog` | event, sector, seat, seatmap (read) | `shared/*` |
-| `pricing` | lot, half-price quota (`half_held/half_sold`), current-lot resolution | `catalog`, `shared/*` |
+| `pricing` | lot, half-price quota (table `sector_half_quota`: `half_cap/half_held/half_sold`), current-lot resolution | `catalog`, `shared/*` |
 | `inventory` | seat_allocation, sector_inventory, buyer_event, hold, hold_item, `SeatAllocator` | `catalog`, `pricing`, `shared/*` (incl. idempotency) |
 | `payments` | `PaymentGateway` port (synchronous), adapters (WireMock/real) | `shared/*` |
 | `checkout` | payment, order, refund, cancellation | `inventory`, `payments`, `shared/*` |
@@ -52,7 +52,8 @@ Plateia is a seat-reserved ticketing API: hold seats for 10 minutes, pay with an
 Rules:
 - `shared/*` (idempotency, error handling, `DbClock`, config) can be used by every module.
 - Idempotency table lives in `shared/idempotency` (used by holds and checkout).
-- Hold + allocation stay in `inventory`: one transaction must touch seat, lot, half quota and `buyer_event`.
+- Hold + allocation stay in `inventory`: one transaction must touch seat, lot, half quota and `buyer_event`. Lock order is always `buyer_event` → `hold` → `seat_allocation`/counters. `buyer_event.ticket_count` counts tickets in active holds plus confirmed orders; there is no `active_hold_id` (the partial unique index `ux_one_active_hold` decides).
+- Persistence is `JdbcClient` (no JPA). The package root of a module is its public API; `application` never depends on `infra`/`api`; `jobs` stays thin. See [ADR 002](../adr/002-fronteiras-de-modulo-e-persistencia.md).
 - `pricing` exposes operations that join the caller's transaction (`reserveLot`, `reserveHalf`, `releaseLot`, `commitLot`).
 - `realtime` is triggered by application events after commit (`@TransactionalEventListener(AFTER_COMMIT)`); business modules never know Redis.
 - Module dependency rules enforced by an ArchUnit test (from phase 0).
@@ -79,7 +80,7 @@ Rules:
 
 ### Seatmap freshness
 
-The event row holds a `seatmap_version` incremented **inside** the transaction that changes availability. Published events and the cache carry this version; clients refetch on a version gap. The snapshot cache has a short TTL (2–5 s) as a safety net, so a lost invalidation (crash after commit, failed publish) heals on its own without a durable event outbox.
+Phase 1 has no `seatmap_version`: the seatmap is read straight from the database. From phase 5, a version is incremented **after** the commit that changes availability (e.g. Redis `INCR`), never inside the hold transaction, because an `UPDATE` on the event row would serialize every hold of the same event (see [ADR 002](../adr/002-fronteiras-de-modulo-e-persistencia.md)). Published events and the cache carry this version; clients refetch on a version gap. The snapshot cache has a short TTL (2–5 s) as a safety net, so a lost invalidation (crash after commit, failed publish) heals on its own without a durable event outbox.
 
 ## 2. Folder Architecture
 
@@ -93,7 +94,7 @@ src/main/kotlin/com/fastticket/
 │   └── time/          # DbClock (database clock_timestamp()) — only time source
 ├── catalog/   {api, application, domain, infra}
 ├── pricing/   {application, domain, infra}
-├── inventory/ {api, application, domain, infra/{allocator,jpa}}
+├── inventory/ {api, application, domain, infra/{allocator,persistence}}
 ├── payments/  PaymentGateway.kt, infra/ (WireMock adapter, real adapter later)
 ├── checkout/  {api, application, domain, infra}
 ├── queue/     {api, application, infra}

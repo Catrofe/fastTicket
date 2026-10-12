@@ -2,6 +2,10 @@ package com.fastticket.architecture
 
 import com.tngtech.archunit.base.DescribedPredicate
 import com.tngtech.archunit.core.domain.JavaCall
+import com.tngtech.archunit.core.domain.JavaClass
+import com.tngtech.archunit.lang.ArchCondition
+import com.tngtech.archunit.lang.ConditionEvents
+import com.tngtech.archunit.lang.SimpleConditionEvent
 import com.tngtech.archunit.core.domain.JavaClasses
 import com.tngtech.archunit.core.importer.ClassFileImporter
 import com.tngtech.archunit.core.importer.ImportOption
@@ -41,6 +45,32 @@ class ModuleDependencyTest {
         .should().dependOnClassesThat().resideInAnyPackage(*modules.keys.map { "com.fastticket.$it.." }.toTypedArray())
         .allowEmptyShould(true)
         .`as`("shared depends on no module")
+
+    private val internalPackage = Regex("""com\.fastticket\.([a-z]+)\.(api|application|domain|infra)(\.|$)""")
+
+    private val publicApiRule: ArchRule = classes().should(object : ArchCondition<JavaClass>("not use another module's internals") {
+        override fun check(item: JavaClass, events: ConditionEvents) {
+            item.directDependenciesFromSelf.forEach { dependency ->
+                val target = internalPackage.find(dependency.targetClass.packageName)
+                if (target != null && !item.packageName.startsWith("com.fastticket.${target.groupValues[1]}")) {
+                    events.add(SimpleConditionEvent.violated(dependency, dependency.description))
+                }
+            }
+        }
+    }).allowEmptyShould(true).`as`("only the root of a module is visible to other modules")
+
+    private val applicationRule: ArchRule = noClasses().that().resideInAPackage("com.fastticket.*.application..")
+        .should().dependOnClassesThat().resideInAnyPackage("com.fastticket.*.infra..", "com.fastticket.*.api..")
+        .allowEmptyShould(true).`as`("application does not depend on infra or api")
+
+    private val jobsRules: List<ArchRule> = listOf(
+        noClasses().that().resideInAPackage("com.fastticket.jobs..")
+            .should().dependOnClassesThat().resideInAnyPackage("com.fastticket.*.domain..", "com.fastticket.*.infra..")
+            .allowEmptyShould(true).`as`("jobs does not depend on domain or infra"),
+        classes().that().resideInAPackage("com.fastticket.jobs..")
+            .should().resideInAPackage("com.fastticket.jobs")
+            .allowEmptyShould(true).`as`("jobs has no subpackages"),
+    )
 
     private val noCycles: ArchRule = slices().matching("com.fastticket.(*)..")
         .should().beFreeOfCycles().allowEmptyShould(true)
@@ -88,7 +118,7 @@ class ModuleDependencyTest {
         )
         .allowEmptyShould(true).`as`("production code lives in the root package, shared or a known module")
 
-    private val allRules: List<ArchRule> = moduleRules + noCycles + layerRules + timeRules + redisRule + knownPackagesOnly
+    private val allRules: List<ArchRule> = moduleRules + publicApiRule + applicationRule + jobsRules + noCycles + layerRules + timeRules + redisRule + knownPackagesOnly
 
     @Test
     fun `production code respects every architecture rule`() {
