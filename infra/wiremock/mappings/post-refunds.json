@@ -1,0 +1,8 @@
+{
+  "request": { "method": "POST", "urlPath": "/refunds" },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "status": "DONE", "gateway_ref": "gwr-{{jsonPath request.body '$.reference'}}" }
+  }
+}

@@ -1,0 +1,100 @@
+package com.fastticket.architecture
+
+import com.tngtech.archunit.base.DescribedPredicate
+import com.tngtech.archunit.core.domain.JavaCall
+import com.tngtech.archunit.core.domain.JavaClasses
+import com.tngtech.archunit.core.importer.ClassFileImporter
+import com.tngtech.archunit.core.importer.ImportOption
+import com.tngtech.archunit.lang.ArchRule
+import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
+import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices
+import org.junit.jupiter.api.Test
+import kotlin.test.assertFailsWith
+
+class ModuleDependencyTest {
+
+    private val modules = mapOf(
+        "catalog" to emptySet(),
+        "pricing" to setOf("catalog"),
+        "inventory" to setOf("catalog", "pricing"),
+        "payments" to emptySet(),
+        "checkout" to setOf("inventory", "payments"),
+        "queue" to emptySet(),
+        "realtime" to setOf("inventory", "checkout"),
+        "jobs" to setOf("inventory", "checkout", "payments", "queue"),
+    )
+
+    private val production: JavaClasses = ClassFileImporter()
+        .withImportOption(ImportOption.DoNotIncludeTests())
+        .importPackages("com.fastticket")
+
+    private val withFixtures: JavaClasses = ClassFileImporter().importPackages("com.fastticket")
+
+    private val moduleRules: List<ArchRule> = modules.map { (module, allowed) ->
+        val forbidden = (modules.keys - module - allowed).map { "com.fastticket.$it.." }.toTypedArray()
+        noClasses().that().resideInAPackage("com.fastticket.$module..")
+            .should().dependOnClassesThat().resideInAnyPackage(*forbidden)
+            .allowEmptyShould(true)
+            .`as`("module $module only depends on ${allowed.ifEmpty { setOf("shared") }}")
+    } + noClasses().that().resideInAPackage("com.fastticket.shared..")
+        .should().dependOnClassesThat().resideInAnyPackage(*modules.keys.map { "com.fastticket.$it.." }.toTypedArray())
+        .allowEmptyShould(true)
+        .`as`("shared depends on no module")
+
+    private val noCycles: ArchRule = slices().matching("com.fastticket.(*)..")
+        .should().beFreeOfCycles().allowEmptyShould(true)
+
+    private val layerRules: List<ArchRule> = listOf(
+        noClasses().that().resideInAPackage("com.fastticket.*.domain..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                "com.fastticket.*.api..", "com.fastticket.*.infra..", "org.springframework.web..",
+            )
+            .allowEmptyShould(true).`as`("domain does not depend on api, infra or web"),
+        noClasses().that().resideInAPackage("com.fastticket.*.api..")
+            .should().dependOnClassesThat().resideInAPackage("com.fastticket.*.infra..")
+            .allowEmptyShould(true).`as`("api does not depend on infra"),
+    )
+
+    private val javaTimeNow = DescribedPredicate.describe<JavaCall<*>>("call java.time *.now()") {
+        it.name == "now" && it.targetOwner.packageName == "java.time"
+    }
+
+    private val timeRules: List<ArchRule> = listOf(
+        noClasses().that().resideOutsideOfPackage("com.fastticket.shared.time..")
+            .should().callMethodWhere(javaTimeNow)
+            .allowEmptyShould(true).`as`("only DbClock reads java.time now()"),
+        noClasses().that().resideOutsideOfPackage("com.fastticket.shared.time..")
+            .should().callMethod(System::class.java, "currentTimeMillis")
+            .allowEmptyShould(true).`as`("no System.currentTimeMillis()"),
+        noClasses().that().resideOutsideOfPackage("com.fastticket.shared.time..")
+            .should().dependOnClassesThat().areAssignableTo(java.time.Clock::class.java)
+            .allowEmptyShould(true).`as`("no java.time.Clock outside shared.time"),
+    )
+
+    private val redisRule: ArchRule = noClasses()
+        .that().resideInAnyPackage("com.fastticket.catalog..", "com.fastticket.pricing..", "com.fastticket.inventory..",
+            "com.fastticket.payments..", "com.fastticket.checkout..", "com.fastticket.shared..")
+        .should().dependOnClassesThat().resideInAPackage("org.springframework.data.redis..")
+        .allowEmptyShould(true).`as`("only queue, realtime and jobs know Redis")
+
+    private val allRules: List<ArchRule> = moduleRules + noCycles + layerRules + timeRules + redisRule
+
+    @Test
+    fun `production code respects every architecture rule`() {
+        allRules.forEach { it.check(production) }
+    }
+
+    @Test
+    fun `rules fail on deliberately violating fixtures`() {
+        val mustFail = moduleRules.first { it.description.startsWith("module catalog") } to "catalog->checkout"
+        listOf(
+            mustFail.first,
+            noCycles,
+            layerRules[0],
+            timeRules[0],
+            redisRule,
+        ).forEach { rule ->
+            assertFailsWith<AssertionError>("rule should fail: ${rule.description}") { rule.check(withFixtures) }
+        }
+    }
+}

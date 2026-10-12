@@ -1,0 +1,8 @@
+{
+  "request": { "method": "GET", "urlPathPattern": "/charges/[^/]+" },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "status": "APPROVED", "gateway_ref": "gw-{{request.pathSegments.[1]}}" }
+  }
+}
