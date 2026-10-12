@@ -6,7 +6,7 @@ Modular monolith in Kotlin + Spring Boot, with Postgres as the single source of 
 
 ## Status
 
-Phase 0 (Foundation) done: build, module skeleton with ArchUnit-enforced boundaries, database clock (`DbClock`), `api`/`worker` profiles, invariant checker and local stack. Phase 1 (Core) implemented: schema, event registration, seatmap, hold with expiration, synchronous card checkout (persistence with `JdbcClient`; see ADR 002). See `docs/plans/` and `docs/adr/`.
+Phase 0 (Foundation) done: build, module skeleton with ArchUnit-enforced boundaries, database clock (`DbClock`), `api`/`worker` profiles, invariant checker and local stack. Phase 1 (Core) implemented: schema, event registration, seatmap, hold with expiration, synchronous card checkout (persistence with `JdbcClient`; see ADR 002). Phase 2 (Concurrency) implemented: three `SeatAllocator` strategies (`conditional`, `pessimistic`, `optimistic`) proven with 100-thread tests and benchmarked; default chosen in ADR 003. See `docs/plans/` and `docs/adr/`.
 
 ## Run locally
 
@@ -52,6 +52,8 @@ Derrubar: `docker compose -f infra/docker-compose.yml --env-file infra/.env down
 ```
 
 Requires Docker (Testcontainers starts Postgres).
+
+Seat allocation strategy: `inventory.allocator.strategy` = `conditional` (default) | `pessimistic` | `optimistic`. Compare them with `./gradlew benchmark` (report in `build/reports/allocator-benchmark.md`; not part of `build`).
 
 ## Profiles
 

@@ -51,6 +51,8 @@ checkout:
 
 inventory:
   hold-ttl: 10m
+  allocator:
+    strategy: conditional
 
 jobs:
   hold-expiration:

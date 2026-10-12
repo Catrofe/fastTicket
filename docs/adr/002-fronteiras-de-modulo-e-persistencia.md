@@ -43,4 +43,4 @@ Ao detalhar a fase 1 (núcleo: cadastro, seatmap, hold, expiração e checkout),
 - **Positivas:** fronteiras verificadas por teste (não só por convenção); transações sem estado ORM escondido; sem serialização por evento; ordem de locks única e documentada; sem ciclo entre `inventory` e `checkout`.
 - **Negativas:** mapeamento manual de linhas (sem ORM); regras ArchUnit exigem manutenção das fixtures; o desvio do `catalog` precisa ser pago antes da fase 4.
 - **Riscos:** a janela de veto (`checkout.pending-grace`) precisa ser maior que o timeout do gateway; um hold com pagamento `PENDING` após a janela expira e uma aprovação tardia vira reembolso (`EXPIRED_AFTER_APPROVAL`).
-- **Pendente:** decisão sobre "cobrança não encontrada" (fase 3); SPI de criação de setor; versionamento do seatmap fora da transação (fase 5); estratégia de lock padrão após o benchmark da fase 2 (ADR 001).
+- **Pendente:** decisão sobre "cobrança não encontrada" (fase 3); SPI de criação de setor; versionamento do seatmap fora da transação (fase 5). A estratégia de lock padrão foi decidida na fase 2 ([ADR 003](003-estrategia-padrao-de-alocacao-de-assentos.md)).
