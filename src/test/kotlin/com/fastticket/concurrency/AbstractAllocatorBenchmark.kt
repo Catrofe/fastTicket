@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc
 import tools.jackson.databind.json.JsonMapper
 import java.io.File
 import java.util.UUID
+import kotlin.math.ceil
 import kotlin.random.Random
 import kotlin.test.assertEquals
 
@@ -30,8 +31,9 @@ private const val MEASURED_ROUNDS = 5
 
 private class Round(val p50: Double, val p95: Double, val p99: Double, val conflictPct: Double, val throughput: Double, val errors: Int, val winners: Int)
 
+/** Nearest-rank percentile: the smallest value with at least p of the samples at or below it. */
 private fun percentile(sortedMs: List<Double>, p: Double): Double =
-    sortedMs[((sortedMs.size - 1) * p).toInt().coerceIn(0, sortedMs.size - 1)]
+    sortedMs[(ceil(p * sortedMs.size).toInt() - 1).coerceIn(0, sortedMs.size - 1)]
 
 private fun round(outcome: RaceOutcome): Round {
     val ms = outcome.results.map { it.nanos / 1_000_000.0 }.sorted()

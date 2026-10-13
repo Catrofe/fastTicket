@@ -71,7 +71,7 @@ tasks.register<Test>("benchmark") {
             @Suppress("UNCHECKED_CAST")
             groovy.json.JsonSlurper().parse(File(dir, "$it.json")) as Map<String, Map<String, Any>>
         }
-        val md = StringBuilder("| Scenario | Strategy | Conflict % | p50 ms | p95 ms | p99 ms | Holds/s | Errors |\n|---|---|---:|---:|---:|---:|---:|---:|\n")
+        val md = StringBuilder("Percentiles are nearest-rank over the 100 requests of a round; each cell is the median of 5 measured rounds. Latency is measured around the MockMvc call.\n\n| Scenario | Strategy | Conflict % | p50 ms | p95 ms | p99 ms | Holds/s | Errors |\n|---|---|---:|---:|---:|---:|---:|---:|\n")
         results.getValue("conditional").keys.forEach { scenario ->
             results.forEach { (strategy, byScenario) ->
                 val r = byScenario.getValue(scenario)

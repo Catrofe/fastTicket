@@ -16,26 +16,26 @@ A garantia não depende da estratégia: o índice `ux_seat_active` e o rollback 
 1. **Duas estratégias atrás da porta `SeatAllocator`**, escolhidas pela propriedade `inventory.allocator.strategy`:
    - `conditional` (padrão): `INSERT … ON CONFLICT DO NOTHING` por assento, em ordem crescente de id.
    - `pessimistic`: `SELECT … FROM seat WHERE id IN (…) ORDER BY id FOR NO KEY UPDATE NOWAIT`, depois checagem de alocações ativas e inserção. Falha de lock (`55P03`) vira `Conflict` dentro de um savepoint, porque um erro aborta a transação do Postgres. `NO KEY UPDATE` evita bloquear as checagens de chave estrangeira de outros inserts.
-2. **Padrão: `conditional`.** Ver benchmark abaixo. É a mais simples, não trava linhas do `catalog` e não precisa de tabela extra; perde para a pessimista só em multi-assento sob contenção alta.
+2. **Padrão: `conditional`.** Ver benchmark abaixo. É a mais simples, não trava linhas do `catalog` e não precisa de tabela extra; perde para a pessimista apenas em p99 de multi-assento sob contenção alta.
 3. **`pessimistic` é a alternativa recomendada** se a abertura de vendas mostrar contenção alta em multi-assento; a troca é só configuração.
-4. **Estratégia otimista removida.** Foi implementada (compare-and-set numa tabela `seat_version`) e medida junto com as outras, mas não venceu em nenhum cenário e custava uma tabela nova, uma migration e mais instruções por pedido. O código, a migration e o benchmark dela foram removidos antes do merge; as colunas "otim" abaixo ficam como evidência da decisão.
+4. **Estratégia otimista removida.** Foi implementada (compare-and-set numa tabela `seat_version`) e medida junto com as outras, mas não venceu em nenhum cenário e custava uma tabela nova, uma migration e mais instruções por pedido. O código, a migration e o benchmark dela foram removidos antes do merge e não aparecem na tabela abaixo (a medição dela foi feita com o pool anterior, de 60 conexões).
 
 ## Benchmark
 
-100 threads por rodada, 1 rodada de aquecimento descartada e 5 medidas (mediana), `postgres:17` em Testcontainers, pool Hikari fixo em 60, mesma máquina de desenvolvimento para as três estratégias medidas (a otimista foi removida depois). Chamadas via MockMvc (sem pilha HTTP), portanto os números comparam estratégias entre si e **não** são comparáveis aos do k6 da fase 5. Reproduzir com `./gradlew benchmark` (relatório em `build/reports/allocator-benchmark.md`). Segunda de duas rodadas; o padrão se repetiu nas duas.
+100 threads por rodada, 1 rodada de aquecimento descartada e 5 medidas (mediana), `postgres:17` em Testcontainers com `max_connections=200`, pool Hikari fixo em 100 (uma conexão por thread, para o pool não enfileirar e contaminar latência e vazão), mesma máquina de desenvolvimento para as duas estratégias. Percentis por nearest-rank sobre as 100 requisições da rodada. Chamadas via MockMvc (sem pilha HTTP), portanto os números comparam estratégias entre si e **não** são comparáveis aos do k6 da fase 5. Reproduzir com `./gradlew benchmark` (relatório em `build/reports/allocator-benchmark.md`).
 
-| Cenário | Conflito % | p99 ms (cond / pess / otim) | Holds/s (cond / pess / otim) |
+| Cenário | Conflito % | p99 ms (cond / pess) | Holds/s (cond / pess) |
 |---|---:|---|---|
-| A. sem contenção (100 assentos disjuntos) | 0 | **50** / 64 / 66 | **1763** / 1489 / 1445 |
-| B. um assento quente | 99 | **32** / 42 / 42 | **28** / 23 / 22 |
-| C. multi-assento sobreposto (2–4 de 6) | 97 | 79 / **46** / 75 | 37 / **59** / 40 |
-| D1. varredura, 20 assentos | 85–86 | 51 / **42** / 53 | 249 / **298** / 264 |
-| D2. varredura, 100 assentos | 65–67 | 43 / **41** / 50 | 712 / **792** / 668 |
-| D3. varredura, 1000 assentos | 20–22 | **42** / 52 / 55 | **1635** / 1434 / 1303 |
+| A. sem contenção (100 assentos disjuntos) | 0 | **54** / 66 | **1615** / 1434 |
+| B. um assento quente | 99 | **34** / 40 | **28** / 24 |
+| C. multi-assento sobreposto (2–4 de 6) | 97–98 | 59 / **45** | 50 / 50 |
+| D1. varredura, 20 assentos | 85–86 | 43 / **37** | 347 / **361** |
+| D2. varredura, 100 assentos | 63–64 | **40** / 45 | **866** / 724 |
+| D3. varredura, 1000 assentos | 20–21 | **43** / 52 | **1606** / 1407 |
 
 0 erros (nenhum 5xx) e 0 duplicatas em todas as estratégias e cenários; as 7 invariantes passam após cada teste.
 
-Leitura: sem contenção ou com contenção baixa, a condicional é a mais rápida (menos instruções). Com muitos pedidos multi-assento disputando poucos assentos, a pessimista rejeita de imediato (`NOWAIT`) em vez de esperar o commit do concorrente, e ganha em p99 e vazão. A taxa de conflito é a mesma nas três (ela depende da carga, não da estratégia).
+Leitura: a condicional é a mais rápida sem contenção, com contenção baixa e no assento quente (menos instruções por pedido). A pessimista só se destaca em p99 quando muitos pedidos multi-assento disputam poucos assentos (C: 45 contra 59 ms; D1: 37 contra 43 ms), porque rejeita de imediato (`NOWAIT`) em vez de esperar o commit do concorrente; mesmo ali a vazão empata. A taxa de conflito é a mesma nas duas (ela depende da carga, não da estratégia). Uma medição anterior, com o pool em 60 para 100 threads, mostrava vantagem bem maior da pessimista, porque a rejeição rápida devolvia a conexão ao pool mais cedo; com o pool dimensionado essa vantagem quase desaparece, o que reforça manter a condicional.
 
 ## Alternativas consideradas
 

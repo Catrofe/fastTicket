@@ -13,4 +13,5 @@ class TestcontainersConfiguration {
     @ServiceConnection
     fun postgresContainer(): PostgreSQLContainer =
         PostgreSQLContainer(DockerImageName.parse("postgres:17"))
+            .withCommand("postgres", "-c", "max_connections=200")
 }

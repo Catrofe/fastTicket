@@ -25,5 +25,7 @@ A fase 1 tinha uma única forma de alocar assentos. A fase 2 precisava provar qu
 ## Como foi resolvido
 
 - **Transação abortada:** um erro esperado (`55P03`) aborta a transação do Postgres, então o lock `NOWAIT` roda dentro de um savepoint (`PROPAGATION_NESTED`). O driver não traduz `55P03` para `CannotAcquireLockException`; o SQLSTATE é checado direto.
-- **Pool:** os testes fixam o pool Hikari em 60 para 100 threads não medirem a fila do pool.
+- **Pool:** os testes fixam o pool Hikari em 100 (uma conexão por thread) e o Postgres do Testcontainers sobe com `max_connections=200`, para o benchmark não medir a fila do pool.
+- **Conflito preciso na pessimista:** quando o `NOWAIT` falha, o `Conflict` lista só as alocações ativas mais os assentos travados por outra transação (descobertos com `SKIP LOCKED`), e não todos os pedidos. Se nada está indisponível porque o lock acabou de ser liberado, tenta de novo (até 3 vezes).
+- **Testes e relatório:** `RaceResult.seatsTaken` confere `code == "SEATS_TAKEN"` no JSON, e os percentis usam nearest-rank.
 - **Decisão:** `conditional` permanece o padrão; `pessimistic` é a alternativa para contenção alta em multi-assento; a otimista não venceu em nenhum cenário e foi removida. Tabela e justificativa no [ADR 003](../adr/003-estrategia-padrao-de-alocacao-de-assentos.md).

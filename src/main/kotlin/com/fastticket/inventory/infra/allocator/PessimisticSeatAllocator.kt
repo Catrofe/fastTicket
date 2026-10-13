@@ -12,6 +12,7 @@ import java.sql.SQLException
 import java.util.UUID
 
 private const val LOCK_NOT_AVAILABLE = "55P03"
+private const val MAX_ATTEMPTS = 3
 
 @Component
 @ConditionalOnProperty(STRATEGY_PROPERTY, havingValue = "pessimistic")
@@ -22,13 +23,17 @@ class PessimisticSeatAllocator(
 
     private val savepoint = Savepoint(txManager)
 
-    override fun allocate(holdId: UUID, seatIds: Collection<UUID>): AllocationResult {
-        val ids = seatIds.distinct().sorted()
+    override fun allocate(holdId: UUID, seatIds: Collection<UUID>): AllocationResult =
+        allocate(holdId, seatIds.distinct().sorted(), MAX_ATTEMPTS)
+
+    private fun allocate(holdId: UUID, ids: List<UUID>, attemptsLeft: Int): AllocationResult {
         try {
             savepoint.guarded { lock(ids) }
         } catch (e: DataAccessException) {
             if (!e.isLockNotAvailable()) throw e
-            return AllocationResult.Conflict(activeSeats(jdbc, ids).ifEmpty { ids })
+            val unavailable = (activeSeats(jdbc, ids) + lockedByOthers(ids)).distinct().sorted()
+            if (unavailable.isNotEmpty() || attemptsLeft == 1) return AllocationResult.Conflict(unavailable.ifEmpty { ids })
+            return allocate(holdId, ids, attemptsLeft - 1)
         }
         val taken = activeSeats(jdbc, ids)
         if (taken.isNotEmpty()) return AllocationResult.Conflict(taken)
@@ -44,5 +49,13 @@ class PessimisticSeatAllocator(
         jdbc.sql("SELECT id FROM seat WHERE id IN (:ids) ORDER BY id FOR NO KEY UPDATE NOWAIT")
             .param("ids", ids)
             .query(UUID::class.java).list()
+    }
+
+    /** Seats another transaction holds the row lock on: whatever SKIP LOCKED cannot return. */
+    private fun lockedByOthers(ids: List<UUID>): List<UUID> {
+        val free = jdbc.sql("SELECT id FROM seat WHERE id IN (:ids) ORDER BY id FOR NO KEY UPDATE SKIP LOCKED")
+            .param("ids", ids)
+            .query(UUID::class.java).list().filterNotNull().toSet()
+        return ids.filter { it !in free }
     }
 }

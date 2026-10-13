@@ -1,5 +1,6 @@
 package com.fastticket.support
 
+import tools.jackson.databind.json.JsonMapper
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -8,7 +9,9 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class RaceResult(val status: Int, val body: String, val nanos: Long) {
     val won get() = status == 201
-    val seatsTaken get() = status == 409 && body.contains("SEATS_TAKEN")
+    val seatsTaken get() = status == 409 && errorCode == "SEATS_TAKEN"
+
+    private val errorCode: String? get() = runCatching { JsonMapper().readTree(body).path("code").asString() }.getOrNull()
 }
 
 class RaceOutcome(val results: List<RaceResult>, val wallNanos: Long)

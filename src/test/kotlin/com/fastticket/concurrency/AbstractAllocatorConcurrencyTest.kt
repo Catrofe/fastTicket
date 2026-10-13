@@ -19,7 +19,7 @@ import java.util.UUID
 import kotlin.random.Random
 import kotlin.test.assertEquals
 
-const val POOL_SIZE_PROPERTY = "spring.datasource.hikari.maximum-pool-size=60"
+const val POOL_SIZE_PROPERTY = "spring.datasource.hikari.maximum-pool-size=100"
 
 @Import(TestcontainersConfiguration::class)
 @SpringBootTest

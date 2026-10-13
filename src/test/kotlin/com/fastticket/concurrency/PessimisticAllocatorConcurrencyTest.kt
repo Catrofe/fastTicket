@@ -20,9 +20,9 @@ class PessimisticAllocatorConcurrencyTest : AbstractAllocatorConcurrencyTest() {
     @Autowired lateinit var txManager: PlatformTransactionManager
 
     @Test
-    fun `lock failure yields conflict and leaves the transaction usable`() {
+    fun `lock failure reports only the contended seats and leaves the transaction usable`() {
         val tx = TransactionTemplate(txManager)
-        val seat = api.seedEvent(1).seatIds[0]
+        val (seat, free) = api.seedEvent(2).seatIds
         val locked = CountDownLatch(1)
         val release = CountDownLatch(1)
         val pool = Executors.newSingleThreadExecutor()
@@ -37,7 +37,7 @@ class PessimisticAllocatorConcurrencyTest : AbstractAllocatorConcurrencyTest() {
         try {
             val (result, probe) = checkNotNull(
                 tx.execute {
-                    allocator.allocate(UUID.randomUUID(), listOf(seat)) to jdbc.sql("SELECT 1").query(Int::class.java).single()
+                    allocator.allocate(UUID.randomUUID(), listOf(seat, free)) to jdbc.sql("SELECT 1").query(Int::class.java).single()
                 },
             )
 
